@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request
 from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters
 import openai
 
 app = Flask(__name__)
@@ -12,8 +12,7 @@ OPENAI_API_KEY = os.getenv("sk-None-2o0g4ci6cXMrtQpAqqatT3BlbkFJrxgYtnLQVST7IXo2
 
 # إعداد البوت والموزع
 bot = Bot(token=TELEGRAM_TOKEN)
-updater = Updater(bot=bot, use_context=True)
-dispatcher = updater.dispatcher
+dispatcher = Dispatcher(bot, None, workers=0, use_context=True)
 
 # إعداد مفتاح API لـ OpenAI
 openai.api_key = OPENAI_API_KEY
@@ -41,4 +40,15 @@ def start(update: Update, context) -> None:
     update.message.reply_text('مرحبًا! أنا بوت تليجرام متكامل مع ChatGPT.')
 
 # إضافة المعالجات إلى الموزع
-dispatcher
+dispatcher.add_handler(CommandHandler("start", start))
+dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
+# نقطة النهاية لـ webhook
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), bot)
+    dispatcher.process_update(update)
+    return "OK", 200
+
+if __name__ == '__main__':
+    app.run(port=5000)
